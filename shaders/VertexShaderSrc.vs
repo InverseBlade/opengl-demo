@@ -1,8 +1,10 @@
 #version 400 core
 layout(location=1) in vec3 pos;
 layout(location=2) in vec3 aColor;
+layout(location=3) in vec2 aTexCoord;
 
-out vec3 fragColor;
+out vec3 outColor;
+out vec2 texCoord;
 
 uniform float xangle;
 uniform float yangle;
@@ -28,6 +30,6 @@ void main() {
     ans.y = z0*sin(xangle) + y0*cos(xangle);
 
     gl_Position = vec4(ans.xyz, 1.0f);
-
-    fragColor = vec3(aColor);
+    outColor = aColor;
+    texCoord = aTexCoord;
 }

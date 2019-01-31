@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include "stb_image.h"
 
 #define RENDER_WID 640
 #define RENDER_HGT 640
@@ -50,40 +51,48 @@ int doLoop(GLFWwindow *window) {
             "shaders/VertexShaderSrc.vs",
             "shaders/FragmentShaderSrc.fs");
     //---------------------------------------------------------//
+    //Load Texture
+    //Generate Texture
+    GLuint texture1 = loadTexture("textures/face.png", GL_RGBA);
+    GLuint texture2 = loadTexture("textures/bricks.jpg", GL_RGB);
     // Vertext Data & Create Buffers
-    float vertices[][6] = {
-            //coordinate r,g,b
+    float vertices[][8] = {
             //front
-            {-0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f}, //0 bottom-left
-            {-0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 1.0f}, //1 top-left
-            {0.5f,  -0.5f, 0.0f, 1.0f, 1.0f, 1.0f}, //2 bottom-right
-            {0.5f,  0.5f,  0.0f, 1.f,  1.f,  1.f}, //3 top-right
+            //coordinate         //color           //texture-coordinates
+            {-0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
+            {-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //1 top-left
+            {0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //2 bottom-right
+            {0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.f, 1.f}, //3 top-right
             //back
-            {-0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 1.0f}, //4 //bottom-left
-            {-0.5f, 0.5f,  1.0f, 1.0f, 1.0f, 1.0f}, //5 //top-left
-            {0.5f,  -0.5f, 1.0f, 1.0f, 1.0f, 1.0f}, //6 //bottom-right
-            {0.5f,  0.5f,  1.0f, 1.f,  1.f,  1.f}, //7 top-right
+            //coordinate         //color           //texture-coordinates
+            {-0.5f, -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 1.f}, //4 //bottom-left
+            {-0.5f, 0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //5 //top-left
+            {0.5f, -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //6 //bottom-right
+            {0.5f, 0.5f, -1.0f, 1.f, 1.f, 1.f, 0.f, 0.f}, //7 top-right
     };
     GLuint indices[] = {
             //face1
             0, 1, 2,
             3, 2, 1,
-            //face2
-            3, 2, 6,
-            3, 6, 7,
-            //face3
-            5, 7, 6,
-            4, 5, 6,
-            //face4
-            1, 4, 5,
-            1, 4, 0,
-            //face5
-            2, 4, 6,
-            2, 0, 4,
-            //face6
-            5, 3, 7,
-            5, 1, 3,
+//            //face2
+//            3, 2, 6,
+//            3, 6, 7,
+//            //face3
+//            5, 7, 6,
+//            4, 5, 6,
+//            //face4
+//            1, 4, 5,
+//            1, 4, 0,
+//            //face5
+//            2, 4, 6,
+//            2, 0, 4,
+//            //face6
+//            5, 3, 7,
+//            5, 1, 3,
     };
+    unsigned int vex_array_col = sizeof(vertices[0]) / sizeof(float),
+            vex_array_row = sizeof(vertices) / sizeof(float) / vex_array_col;
+    printf("%d\n", sizeof(indices));
     // Vertex Array Object, Vertex Buffer Object, Element Buffer Object
     GLuint VAO, VBO, EBO;
     // Generate Objects
@@ -96,26 +105,39 @@ int doLoop(GLFWwindow *window) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     // Copy Data to Video Card Memory
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(vertices) * sizeof(vertices[0]) * sizeof(float), vertices,
-                 GL_STATIC_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) * sizeof(float),
+                 vex_array_row * vex_array_col * sizeof(float),
+                 vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 sizeof(indices) / sizeof(float) * sizeof(float),
                  indices, GL_STATIC_DRAW);
     // Assign Data To Vertex Attributes
     // vertex position
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+                          vex_array_col * sizeof(float),
                           (void *) (sizeof(float) * 0));
     glEnableVertexAttribArray(1);
     // vertex color
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
+                          vex_array_col * sizeof(float),
                           (void *) (sizeof(float) * 3));
     glEnableVertexAttribArray(2);
+    //texture coord
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE,
+                          vex_array_col * sizeof(float),
+                          (void *) (sizeof(float) * 6));
+    glEnableVertexAttribArray(3);
     // Unbind VAO
     glBindVertexArray(0);
+    //Use ShaderProgram
+    glUseProgram(ShaderProgram);
+    //texture & sampler
+    glUniform1i(glGetUniformLocation(ShaderProgram, "myTexture1"), 0);
+    glUniform1i(glGetUniformLocation(ShaderProgram, "myTexture2"), 1);
     // Get Uniforms Location
     GLint xAngleLoc = glGetUniformLocation(ShaderProgram, "xangle");
     GLint yAngleLoc = glGetUniformLocation(ShaderProgram, "yangle");
     GLint zAngleLoc = glGetUniformLocation(ShaderProgram, "zangle");
-
+    //Render Mode
     switch (mode) {
         case MODE_LINE:
             mode = GL_LINE_LOOP;
@@ -130,19 +152,25 @@ int doLoop(GLFWwindow *window) {
     while (!glfwWindowShouldClose(window)) {
         // input
         processInput(window);
-
         // Render
         glClearColor(.0f, .0f, .0f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        //glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Use Program & Draw
-        glUseProgram(ShaderProgram);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+
         glBindVertexArray(VAO);
         glUniform1f(xAngleLoc, xangle);
         glUniform1f(yAngleLoc, yangle);
         glUniform1f(zAngleLoc, zangle);
         glPolygonMode(GL_FRONT, GL_FILL);
-        glDrawElements(mode, (int) sizeof(indices), GL_UNSIGNED_INT, (void *) 0);
-
+        glEnable(GL_DEPTH_TEST);
+        glDrawElements(GL_TRIANGLES,
+                       sizeof(indices) / sizeof(float),
+                       GL_UNSIGNED_INT, (void *) 0);
         // check events
         glfwPollEvents();
         glfwSwapBuffers(window);
