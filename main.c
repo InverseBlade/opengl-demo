@@ -8,6 +8,7 @@
 #include <string.h>
 #include <windows.h>
 #include "stb_image.h"
+#include "linmath.h"
 
 #define RENDER_WID 640
 #define RENDER_HGT 640
@@ -26,6 +27,7 @@ GLFWwindow *initWindow(void);
 void processInput(GLFWwindow *window);
 
 float xangle = .0f, yangle = .0f, zangle = .0f;
+float xoffset = .0f, yoffset = 0.f, scale = 1.0f;
 int mode = MODE_LINE;
 
 int main(int argc, char const *argv[]) {
@@ -54,21 +56,21 @@ int doLoop(GLFWwindow *window) {
     //Load Texture
     //Generate Texture
     GLuint texture1 = loadTexture("textures/face.png", GL_RGBA);
-    GLuint texture2 = loadTexture("textures/bricks.jpg", GL_RGB);
+    GLuint texture2 = loadTexture("textures/container.jpg", GL_RGB);
     // Vertext Data & Create Buffers
     float vertices[][8] = {
             //front
             //coordinate         //color           //texture-coordinates
-            {-0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
-            {-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //1 top-left
-            {0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //2 bottom-right
-            {0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.f, 1.f}, //3 top-right
+            {-0.5f, -0.5f, 0.0f,  1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
+            {-0.5f, 0.5f,  0.0f,  1.0f, 1.0f, 1.0f, 0.f, 2.f}, //1 top-left
+            {0.5f,  -0.5f, 0.0f,  1.0f, 1.0f, 1.0f, 2.f, 0.f}, //2 bottom-right
+            {0.5f,  0.5f,  0.0f,  1.0f, 1.0f, 1.0f, 2.f, 2.f}, //3 top-right
             //back
             //coordinate         //color           //texture-coordinates
             {-0.5f, -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 1.f}, //4 //bottom-left
-            {-0.5f, 0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //5 //top-left
-            {0.5f, -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //6 //bottom-right
-            {0.5f, 0.5f, -1.0f, 1.f, 1.f, 1.f, 0.f, 0.f}, //7 top-right
+            {-0.5f, 0.5f,  -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //5 //top-left
+            {0.5f,  -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //6 //bottom-right
+            {0.5f,  0.5f,  -1.0f, 1.f,  1.f,  1.f,  0.f, 0.f}, //7 top-right
     };
     GLuint indices[] = {
             //face1
@@ -134,9 +136,7 @@ int doLoop(GLFWwindow *window) {
     glUniform1i(glGetUniformLocation(ShaderProgram, "myTexture1"), 0);
     glUniform1i(glGetUniformLocation(ShaderProgram, "myTexture2"), 1);
     // Get Uniforms Location
-    GLint xAngleLoc = glGetUniformLocation(ShaderProgram, "xangle");
-    GLint yAngleLoc = glGetUniformLocation(ShaderProgram, "yangle");
-    GLint zAngleLoc = glGetUniformLocation(ShaderProgram, "zangle");
+    int matrixLoc = glGetUniformLocation(ShaderProgram, "MVP");
     //Render Mode
     switch (mode) {
         case MODE_LINE:
@@ -148,6 +148,7 @@ int doLoop(GLFWwindow *window) {
         default:
             mode = GL_TRIANGLES;
     }
+    int flag = 1;
     // Loop
     while (!glfwWindowShouldClose(window)) {
         // input
@@ -161,11 +162,17 @@ int doLoop(GLFWwindow *window) {
         glBindTexture(GL_TEXTURE_2D, texture1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
-
+        //Transform
+        mat4x4 mvp;
+        mat4x4_identity(mvp);
+        mat4x4_translate(mvp, xoffset, yoffset, 0.0f);
+        mat4x4_rotate_X(mvp, mvp, xangle);
+        mat4x4_rotate_Y(mvp, mvp, yangle);
+        mat4x4_rotate_Z(mvp, mvp, zangle);
+        mat4x4_scale_aniso(mvp, mvp, scale, scale, scale);
+        glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
+        //Vertex Array
         glBindVertexArray(VAO);
-        glUniform1f(xAngleLoc, xangle);
-        glUniform1f(yAngleLoc, yangle);
-        glUniform1f(zAngleLoc, zangle);
         glPolygonMode(GL_FRONT, GL_FILL);
         glEnable(GL_DEPTH_TEST);
         glDrawElements(GL_TRIANGLES,
@@ -185,10 +192,11 @@ int doLoop(GLFWwindow *window) {
  */
 void processInput(GLFWwindow *window) {
     static double lastTime = 0;
+    static float delta = 0.01f;
     double t = glfwGetTime();
-    const float ratio = 0.05f;
+    const float ratio = 0.025f;
     //
-    if (t - lastTime < 0.01) {
+    if (t - lastTime < 0.005) {
         return;
     }
     lastTime = t;
@@ -207,11 +215,29 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
         xangle -= ratio;
     }
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
         zangle += ratio;
     }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
         zangle -= ratio;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        xoffset -= ratio;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        xoffset += ratio;
+    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        yoffset += ratio;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        yoffset -= ratio;
+    }
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
+        scale += delta;
+    }
+    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
+        scale -= delta;
     }
 }
 
@@ -219,7 +245,10 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     int wid, hgt;
     hgt = wid = width < height ? width : height;
     glViewport(0, 0, wid, hgt);
-    return;
+}
+
+void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+
 }
 
 /**
@@ -252,5 +281,7 @@ GLFWwindow *initWindow(void) {
     glViewport(0, 0, RENDER_WID, RENDER_HGT);
     // set resize callback func
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    //set keypress callback
+
     return window;
 }
