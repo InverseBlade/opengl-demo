@@ -6,30 +6,10 @@ layout(location=3) in vec2 aTexCoord;
 out vec3 outColor;
 out vec2 texCoord;
 
-uniform float xangle;
-uniform float yangle;
-uniform float zangle;
+uniform mat4 MVP;
 
 void main() {
-    float x0, y0, z0;
-    vec3 ans = pos;
-
-    x0 = ans.x;
-    y0 = ans.y;
-    ans.x = x0*cos(zangle) - y0*sin(zangle);
-    ans.y = x0*sin(zangle) + y0*cos(zangle);
-
-    x0 = ans.x;
-    z0 = ans.z;
-    ans.x = x0*cos(yangle) - z0*sin(yangle);
-    ans.z = x0*sin(yangle) + z0*cos(yangle);
-
-    z0 = ans.z;
-    y0 = ans.y;
-    ans.z = z0*cos(xangle) - y0*sin(xangle);
-    ans.y = z0*sin(xangle) + y0*cos(xangle);
-
-    gl_Position = vec4(ans.xyz, 1.0f);
+    gl_Position = MVP * vec4(pos.xyz, 1.0f);
     outColor = aColor;
     texCoord = aTexCoord;
 }
