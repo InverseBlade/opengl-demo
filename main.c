@@ -27,7 +27,7 @@ GLFWwindow *initWindow(void);
 void processInput(GLFWwindow *window);
 
 float xangle = .0f, yangle = .0f, zangle = .0f;
-float xoffset = .0f, yoffset = 0.f, scale = 1.0f;
+float xoffset = .0f, yoffset = 0.f, zoffset = 0.f, scale = 0.5f;
 int mode = MODE_LINE;
 
 int main(int argc, char const *argv[]) {
@@ -56,41 +56,65 @@ int doLoop(GLFWwindow *window) {
     //Load Texture
     //Generate Texture
     GLuint texture1 = loadTexture("textures/face.png", GL_RGBA);
-    GLuint texture2 = loadTexture("textures/container.jpg", GL_RGB);
+    GLuint texture2 = loadTexture("textures/bricks.jpg", GL_RGB);
     // Vertext Data & Create Buffers
     float vertices[][8] = {
             //front
             //coordinate         //color           //texture-coordinates
-            {-0.5f, -0.5f, 0.0f,  1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
-            {-0.5f, 0.5f,  0.0f,  1.0f, 1.0f, 1.0f, 0.f, 2.f}, //1 top-left
-            {0.5f,  -0.5f, 0.0f,  1.0f, 1.0f, 1.0f, 2.f, 0.f}, //2 bottom-right
-            {0.5f,  0.5f,  0.0f,  1.0f, 1.0f, 1.0f, 2.f, 2.f}, //3 top-right
+            {-1.0f, -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
+            {-1.0f, 1.0f,  1.0f,  1.0f, 1.0f, 1.0f, 0.f, 1.f}, //1 top-left
+            {1.0f,  -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.f, 0.f}, //2 bottom-right
+            {1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //3 top-right
             //back
             //coordinate         //color           //texture-coordinates
-            {-0.5f, -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 1.f}, //4 //bottom-left
-            {-0.5f, 0.5f,  -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //5 //top-left
-            {0.5f,  -0.5f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //6 //bottom-right
-            {0.5f,  0.5f,  -1.0f, 1.f,  1.f,  1.f,  0.f, 0.f}, //7 top-right
+            {-1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //4 bottom-left
+            {-1.0f, 1.0f,  -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 1.f}, //5 top-left
+            {1.0f,  -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //6 bottom-right
+            {1.0f,  1.0f,  -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 1.f}, //7 top-right
+            // left
+            //coordinate         //color           //texture-coordinates
+            {-1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //8 bottom-left
+            {-1.0f, -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.f, 1.f}, //9 top-left
+            {-1.0f, 1.0f,  -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //10 bottom-right
+            {-1.0f, 1.0f,  1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //11 top-right
+            // right
+            //coordinate         //color           //texture-coordinates
+            {1.0f,  -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //12 bottom-left
+            {1.0f,  -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.f, 1.f}, //13 top-left
+            {1.0f,  1.0f,  -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //14 bottom-right
+            {1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //15 top-right
+            // top
+            //coordinate         //color           //texture-coordinates
+            {-1.0f, 1.0f,  -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //16 bottom-left
+            {-1.0f, 1.0f,  1.0f,  1.0f, 1.0f, 1.0f, 0.f, 1.f}, //17 top-left
+            {1.0f,  1.0f,  -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //18 bottom-right
+            {1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //19 top-right
+            // front
+            //coordinate         //color           //texture-coordinates
+            {-1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.f, 0.f}, //20 bottom-left
+            {-1.0f, -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.f, 1.f}, //21 top-left
+            {1.0f,  -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //22 bottom-right
+            {1.0f,  -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //23 top-right
     };
     GLuint indices[] = {
             //face1
             0, 1, 2,
             3, 2, 1,
-//            //face2
-//            3, 2, 6,
-//            3, 6, 7,
-//            //face3
-//            5, 7, 6,
-//            4, 5, 6,
-//            //face4
-//            1, 4, 5,
-//            1, 4, 0,
-//            //face5
-//            2, 4, 6,
-//            2, 0, 4,
-//            //face6
-//            5, 3, 7,
-//            5, 1, 3,
+            //face2
+            4, 5, 6,
+            5, 6, 7,
+            //face3
+            8, 9, 10,
+            9, 10, 11,
+            //face4
+            12, 13, 14,
+            13, 14, 15,
+            //face5
+            16, 17, 18,
+            17, 18, 19,
+            //face6
+            20, 21, 22,
+            21, 22, 23
     };
     unsigned int vex_array_col = sizeof(vertices[0]) / sizeof(float),
             vex_array_row = sizeof(vertices) / sizeof(float) / vex_array_col;
@@ -154,7 +178,7 @@ int doLoop(GLFWwindow *window) {
         // input
         processInput(window);
         // Render
-        glClearColor(.0f, .0f, .0f, 1.f);
+        glClearColor(0.2f, 0.3f, 0.3f, 1.f);
         //glClear(GL_COLOR_BUFFER_BIT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Use Program & Draw
@@ -164,12 +188,21 @@ int doLoop(GLFWwindow *window) {
         glBindTexture(GL_TEXTURE_2D, texture2);
         //Transform
         mat4x4 mvp;
-        mat4x4_identity(mvp);
-        mat4x4_translate(mvp, xoffset, yoffset, 0.0f);
-        mat4x4_rotate_X(mvp, mvp, xangle);
-        mat4x4_rotate_Y(mvp, mvp, yangle);
-        mat4x4_rotate_Z(mvp, mvp, zangle);
-        mat4x4_scale_aniso(mvp, mvp, scale, scale, scale);
+        mat4x4 model, view, projection;
+        //Model Matrix
+        mat4x4_translate(model, xoffset, yoffset, zoffset);
+        mat4x4_rotate_X(model, model, xangle);
+        mat4x4_rotate_Y(model, model, yangle);
+        mat4x4_rotate_Z(model, model, zangle);
+        mat4x4_scale_aniso(model, model, scale, scale, scale);
+        //View Matrix
+        mat4x4_translate(view, 0.f, 0.f, -3.0f);
+        //Projection Matrix
+        float ratio = 1.0f / 1.0f;
+        mat4x4_perspective(projection, 45.f / 180 * PI, ratio, 0.1f, 100.0f);
+        //MVP
+        mat4x4_mul(mvp, projection, view);
+        mat4x4_mul(mvp, mvp, model);
         glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
         //Vertex Array
         glBindVertexArray(VAO);
@@ -192,7 +225,7 @@ int doLoop(GLFWwindow *window) {
  */
 void processInput(GLFWwindow *window) {
     static double lastTime = 0;
-    static float delta = 0.01f;
+    static float delta1 = 0.001f, delta2 = 1e-3f;
     double t = glfwGetTime();
     const float ratio = 0.025f;
     //
@@ -234,11 +267,24 @@ void processInput(GLFWwindow *window) {
         yoffset -= ratio;
     }
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-        scale += delta;
+        scale += delta1;
+        delta1 *= 1.01f;
+    } else {
+        delta1 = 1e-3f;
     }
     if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-        scale -= delta;
+        scale -= delta2;
+        delta2 *= 1.01f;
+    } else {
+        delta2 = 1e-3f;
     }
+    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
+        zoffset += 0.1f;
+    }
+    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
+        zoffset -= 0.1f;
+    }
+    scale = scale <= 1e-2f ? 1e-2f : scale;
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {

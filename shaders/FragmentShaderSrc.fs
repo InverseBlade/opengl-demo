@@ -9,15 +9,13 @@ uniform sampler2D myTexture1;
 uniform sampler2D myTexture2;
 
 void main() {
-    //fragColor =
-    //mix(texture(myTexture1, texCoord), texture(myTexture2,texCoord), 0.8f)
-    //* vec4(outColor, 1.0f);
-    //texture(myTexture1, texCoord) * texture(myTexture2,texCoord);
-    vec4 tex1 = texture(myTexture1, texCoord),
+    fragColor =
+    mix(texture(myTexture2, texCoord), texture(myTexture2,texCoord), 0.2f) * vec4(outColor, 1.0f);
+    /*vec4 tex1 = texture(myTexture1, texCoord),
          tex2 = texture(myTexture2, texCoord);
     if (tex1.x+tex1.y+tex1.z >= 3.0f) {
         fragColor = tex2;
     }else{
         fragColor = tex1;
-    }
+    }*/
 }
