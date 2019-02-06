@@ -55,8 +55,8 @@ int doLoop(GLFWwindow *window) {
     //---------------------------------------------------------//
     //Load Texture
     //Generate Texture
-    GLuint texture1 = loadTexture("textures/face.png", GL_RGBA);
-    GLuint texture2 = loadTexture("textures/bricks.jpg", GL_RGB);
+    GLuint texture1 = loadTexture("textures/container.png", GL_RGBA);
+    GLuint texture2 = loadTexture("textures/container.jpg", GL_RGB);
     // Vertext Data & Create Buffers
     float vertices[][8] = {
             //front
@@ -211,6 +211,16 @@ int doLoop(GLFWwindow *window) {
         glDrawElements(GL_TRIANGLES,
                        sizeof(indices) / sizeof(float),
                        GL_UNSIGNED_INT, (void *) 0);
+
+        mat4x4_translate(model, 2.5f, 2.5f, -10.f);
+        mat4x4_rotate_X(model, model, xangle);
+        mat4x4_rotate_Y(model, model, yangle);
+        mat4x4_rotate_Z(model, model, zangle);
+        mat4x4_mul(mvp, projection, view);
+        mat4x4_mul(mvp, mvp, model);
+        glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
+        glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void *) 0);
+
         // check events
         glfwPollEvents();
         glfwSwapBuffers(window);
