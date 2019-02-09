@@ -10,11 +10,12 @@
 #include "stb_image.h"
 #include "linmath.h"
 
-#define RENDER_WID 640
-#define RENDER_HGT 640
-#define WIN_TITLE "旋转方块"
+#define RENDER_WID 1280
+#define RENDER_HGT 1280
+#define WIN_TITLE "旋转方块——帧数:"
 
-#define PI (3.1415926f)
+#define PI (3.14159f)
+#define radius(angle) (PI * (angle) / 180.f)
 #define MODE_LINE 1
 #define MODE_FILL 2
 
@@ -32,8 +33,11 @@ vec3 camera = {0.0f, 0.0f, 3.0f},
         direction = {0.0f, 0.0f, -1.0f},
         up = {0.0f, 1.0f, 0.0f};
 float delta_time = 0.0f, last_frame = 0.0f;
-float yaw, pitch;
-float last_x = 200, last_y = 100;
+float yaw = -90.f, pitch = .0f;
+float last_x = 0, last_y = 0;
+
+int screen_w = RENDER_WID, screen_h = RENDER_HGT;
+
 int mode = MODE_LINE;
 
 int main(int argc, char const *argv[]) {
@@ -63,6 +67,7 @@ int doLoop(GLFWwindow *window) {
     //Generate Texture
     GLuint texture1 = loadTexture("textures/face.png", GL_RGBA);
     GLuint texture2 = loadTexture("textures/container.jpg", GL_RGB);
+    GLuint texture3 = loadTexture("textures/bricks.jpg", GL_RGB);
     // Vertext Data & Create Buffers
     float vertices[][8] = {
             //front
@@ -193,12 +198,18 @@ int doLoop(GLFWwindow *window) {
             {1.5f,  0.2f,  -1.5f},
             {-1.3f, 1.0f,  -1.5f},
     };
+    last_frame = (float) glfwGetTime();
     // Loop
     while (!glfwWindowShouldClose(window)) {
         //delta time process
         float current_frame = (float) glfwGetTime();
         delta_time = current_frame - last_frame;
         last_frame = current_frame;
+        //FPS
+        int fps = (int) (1.0f / delta_time + 0.5f);
+        char title[255];
+        sprintf(title, "%s%d", WIN_TITLE, fps);
+        glfwSetWindowTitle(window, title);
         // input
         processInput(window);
         // Render
@@ -210,38 +221,28 @@ int doLoop(GLFWwindow *window) {
         glBindTexture(GL_TEXTURE_2D, texture1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
+        //Vertex Array
+        glBindVertexArray(VAO);
+        glPolygonMode(GL_FRONT, GL_FILL);
+        glEnable(GL_DEPTH_TEST);
         //Transform
         mat4x4 mvp;
         mat4x4 model, view, projection;
-        //Model Matrix
-        mat4x4_translate(model, xoffset, yoffset, zoffset);
-        mat4x4_rotate_X(model, model, xangle);
-        mat4x4_rotate_Y(model, model, yangle);
-        mat4x4_rotate_Z(model, model, zangle);
-        mat4x4_scale_aniso(model, model, scale, scale, scale);
         //View Matrix
 //        mat4x4_translate(view, 0.f, 0.f, -5.0f);
         vec3 target;
         vec3_add(target, camera, direction);
         mat4x4_look_at(view, camera, target, up);
         //Projection Matrix
-        float ratio = 1.0f / 1.0f;
+        float ratio = (float) screen_w / screen_h;
         mat4x4_perspective(projection, 45.f / 180 * PI, ratio, 0.1f, 100.0f);
-        //MVP
-        mat4x4_mul(mvp, projection, view);
-        mat4x4_mul(mvp, mvp, model);
-        glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
-        //Vertex Array
-        glBindVertexArray(VAO);
-        glPolygonMode(GL_FRONT, GL_FILL);
-        glEnable(GL_DEPTH_TEST);
-//        glDrawElements(GL_TRIANGLES,
-//                       sizeof(indices) / sizeof(float),
-//                       GL_UNSIGNED_INT, (void *) 0);
-
+        //Draw Cubes
+        mat4x4 temp;
         for (int i = 0; i < 10; ++i) {
-            mat4x4_translate(model,
-                             cube_pos[i].x, cube_pos[i].y, cube_pos[i].z);
+            mat4x4_identity(model);
+            mat4x4_rotate_Y(model, model, current_frame);
+            mat4x4_translate(temp, cube_pos[i].x, cube_pos[i].y, cube_pos[i].z);
+            mat4x4_mul(model, model, temp);
             float angle = 20.0f * i;
             mat4x4_rotate(model, model, 1.0f, 0.3f, 0.5f, angle);
             mat4x4_scale_aniso(model, model, scale, scale, scale);
@@ -252,7 +253,21 @@ int doLoop(GLFWwindow *window) {
                            sizeof(indices) / sizeof(float),
                            GL_UNSIGNED_INT, (void *) 0);
         }
-
+        //Model Matrix
+        mat4x4_translate(model, xoffset, yoffset, zoffset);
+        mat4x4_rotate_X(model, model, xangle);
+        mat4x4_rotate_Y(model, model, yangle);
+        mat4x4_rotate_Z(model, model, zangle);
+        mat4x4_scale_aniso(model, model, 28.f, 28.f, 28.f);
+        //MVP
+        mat4x4_mul(mvp, projection, view);
+        mat4x4_mul(mvp, mvp, model);
+        glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture3);
+        glDrawElements(GL_TRIANGLES,
+                       sizeof(indices) / sizeof(float),
+                       GL_UNSIGNED_INT, (void *) 0);
         // check events
         glfwPollEvents();
         glfwSwapBuffers(window);
@@ -279,7 +294,7 @@ void walk_sideways(vec3 camera_pos, vec3 const direction, vec3 const up, float c
 /**
  * Process user key inputs
  */
-void processInput(GLFWwindow *window) {
+inline void processInput(GLFWwindow *window) {
     static double lastTime = 0;
     static float delta1 = 0.001f, delta2 = 1e-3f;
     double t = glfwGetTime();
@@ -357,9 +372,8 @@ void processInput(GLFWwindow *window) {
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
-    int wid, hgt;
-    hgt = wid = width < height ? width : height;
-    glViewport(0, 0, wid, hgt);
+    screen_w = width, screen_h = height;
+    glViewport(0, 0, width, height);
 }
 
 void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -375,27 +389,25 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
         first = 0;
     }
 
-    float xoffset = (float) xpos - last_x;
-    float yoffset = last_y - (float) ypos;
+    float offset_x = (float) xpos - last_x;
+    float offset_y = last_y - (float) ypos;
     last_x = (float) xpos;
     last_y = (float) ypos;
 
-    float sensitivity = 0.005f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
+    float sensitivity = 5e-2f;
+    offset_x *= sensitivity;
+    offset_y *= sensitivity;
 
-    yaw += xoffset;
-    pitch += yoffset;
+    yaw += offset_x;
+    pitch += offset_y;
 
-    if (pitch > 89.0f) pitch = 89.f;
-    if (pitch < -89.f) pitch = -89.f;
+    if (pitch >= 89.0f) pitch = 89.f;
+    if (pitch <= -89.f) pitch = -89.f;
 
     vec3 front;
-    //pitch = pitch / 180.f * PI;
-    //yaw = yaw / 180.f * PI;
-    front[0] = cosf(pitch) * cosf(yaw);
-    front[1] = sinf(pitch);
-    front[2] = cosf(pitch) * sinf(yaw);
+    front[0] = cosf(radius(pitch)) * cosf(radius(yaw));
+    front[1] = sinf(radius(pitch));
+    front[2] = cosf(radius(pitch)) * sinf(radius(yaw));
     vec3_norm(direction, front);
 
 }
