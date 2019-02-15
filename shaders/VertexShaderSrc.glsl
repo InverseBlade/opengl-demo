@@ -7,9 +7,14 @@ out vec3 outColor;
 out vec2 texCoord;
 
 uniform mat4 MVP;
+uniform int texType;
 
 void main() {
     gl_Position = MVP * vec4(pos.xyz, 1.0f);
     outColor = aColor;
-    texCoord = aTexCoord;
+    if (texType == 1){
+        texCoord = aTexCoord;
+    }else if (texType == 2){
+        texCoord = aTexCoord * 6;
+    }
 }

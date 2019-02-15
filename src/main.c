@@ -9,6 +9,7 @@
 #include <windows.h>
 #include "stb_image.h"
 #include "linmath.h"
+#include "main.h"
 
 #define RENDER_WID 1280
 #define RENDER_HGT 1280
@@ -18,6 +19,8 @@
 #define radius(angle) (PI * (angle) / 180.f)
 #define MODE_LINE 1
 #define MODE_FILL 2
+
+#define CAMERA_SPEED 8
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
@@ -29,7 +32,7 @@ void processInput(GLFWwindow *window);
 
 float xangle = .0f, yangle = .0f, zangle = .0f;
 float xoffset = .0f, yoffset = 0.f, zoffset = 10.f, scale = 0.4f;
-vec3 camera = {0.0f, 0.0f, 3.0f},
+vec3 camera = {0.0f, -20.0f, 3.0f},
         direction = {0.0f, 0.0f, -1.0f},
         up = {0.0f, 1.0f, 0.0f};
 float delta_time = 0.0f, last_frame = 0.0f;
@@ -53,6 +56,12 @@ int main(int argc, char const *argv[]) {
     glfwTerminate();
     return 0;
 }
+
+void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer) {
+
+}
+
+void render_sky(ShaderAttrib attrib, Player *player, GLuint array_buffer, GLuint element_buffer);
 
 /**
  * Core Program Loop
@@ -235,9 +244,10 @@ int doLoop(GLFWwindow *window) {
         mat4x4_look_at(view, camera, target, up);
         //Projection Matrix
         float ratio = (float) screen_w / screen_h;
-        mat4x4_perspective(projection, 45.f / 180 * PI, ratio, 0.1f, 100.0f);
+        mat4x4_perspective(projection, 45.f / 180 * PI, ratio, 0.1f, 1000.0f);
         //Draw Cubes
         mat4x4 temp;
+        glUniform1i(glGetUniformLocation(ShaderProgram, "texType"), 1);
         for (int i = 0; i < 10; ++i) {
             mat4x4_identity(model);
             mat4x4_rotate_Y(model, model, current_frame);
@@ -245,6 +255,7 @@ int doLoop(GLFWwindow *window) {
             mat4x4_mul(model, model, temp);
             float angle = 20.0f * i;
             mat4x4_rotate(model, model, 1.0f, 0.3f, 0.5f, angle);
+            mat4x4_rotate_Y(model, model, current_frame);
             mat4x4_scale_aniso(model, model, scale, scale, scale);
             mat4x4_mul(mvp, projection, view);
             mat4x4_mul(mvp, mvp, model);
@@ -265,6 +276,7 @@ int doLoop(GLFWwindow *window) {
         glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture3);
+        glUniform1i(glGetUniformLocation(ShaderProgram, "texType"), 2);
         glDrawElements(GL_TRIANGLES,
                        sizeof(indices) / sizeof(float),
                        GL_UNSIGNED_INT, (void *) 0);
@@ -283,6 +295,25 @@ void walk_along_direction(vec3 camera_pos, vec3 const direction, float const spe
     vec3_add(camera_pos, camera_pos, temp);
 }
 
+void walk_along_on_ground(vec3 camera_pos,
+                          vec3 const front,
+                          vec3 const up,
+                          float const speed) {
+    //figure out walk vector
+    vec3 temp_front;
+    vec3_norm(temp_front, front);
+    vec3_scale(temp_front, temp_front, speed);
+    //scale up_unit vector properly for the next process
+    vec3 up_unit;
+    vec3_norm(up_unit, up);
+    vec3_scale(up_unit, up_unit, vec3_mul_inner(temp_front, up_unit));
+    //figure out projection of walk vector on the level of camera
+    vec3 step;
+    vec3_sub(step, temp_front, up_unit);
+    //calculate the camera position
+    vec3_add(camera_pos, camera_pos, step);
+}
+
 void walk_sideways(vec3 camera_pos, vec3 const direction, vec3 const up, float const speed) {
     vec3 temp;
     vec3_mul_cross(temp, direction, up);
@@ -297,9 +328,11 @@ void walk_sideways(vec3 camera_pos, vec3 const direction, vec3 const up, float c
 inline void processInput(GLFWwindow *window) {
     static double lastTime = 0;
     static float delta1 = 0.001f, delta2 = 1e-3f;
+    static int speed_up = 0;
     double t = glfwGetTime();
-    float camera_speed = 2.5f * delta_time;
+    float camera_speed = (speed_up ? 10.f : 1.f) * CAMERA_SPEED * delta_time;
     const float ratio = 0.025f;
+    static int camera_mode = 1;
     //
     if (t - lastTime < 0.005) {
         //return;
@@ -357,16 +390,53 @@ inline void processInput(GLFWwindow *window) {
         zoffset -= 0.1f;
     }
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
-        walk_along_direction(camera, direction, camera_speed);
+        if (camera_mode == 1) {
+            walk_along_on_ground(camera, direction, up, camera_speed);
+        } else {
+            walk_along_direction(camera, direction, camera_speed);
+        }
     }
     if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-        walk_along_direction(camera, direction, -camera_speed);
+        if (camera_mode == 1) {
+            walk_along_on_ground(camera, direction, up, -camera_speed);
+        } else {
+            walk_along_direction(camera, direction, -camera_speed);
+        }
     }
     if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
         walk_sideways(camera, direction, up, -camera_speed);
     }
     if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
         walk_sideways(camera, direction, up, camera_speed);
+    }
+    //jump
+    static int jump = 0;
+    if (jump || glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        static float pos, v0 = 9, g = -10.f, v;
+        vec3 h = {0, 1, 0};
+        float height = 0;
+        if (!jump) {
+            //first jump
+            pos = camera[1];
+            v = v0;
+            jump = 1;
+        } else {
+            v += delta_time * g;
+            height = v * delta_time;
+            if (camera[1] < pos) {
+                jump = 0;
+            } else {
+                walk_along_direction(camera, h, height);
+            }
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+        speed_up = 1;
+    } else {
+        speed_up = 0;
+    }
+    if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) {
+        camera_mode = !camera_mode;
     }
     scale = scale <= 1e-2f ? 1e-2f : scale;
 }
@@ -401,13 +471,13 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     yaw += offset_x;
     pitch += offset_y;
 
-    if (pitch >= 89.0f) pitch = 89.f;
-    if (pitch <= -89.f) pitch = -89.f;
+    if (pitch >= 89.9f) pitch = 89.9f;
+    if (pitch <= -89.9f) pitch = -89.9f;
 
     vec3 front;
-    front[0] = cosf(radius(pitch)) * cosf(radius(yaw));
-    front[1] = sinf(radius(pitch));
-    front[2] = cosf(radius(pitch)) * sinf(radius(yaw));
+    front[0] = cosf(radius(yaw));
+    front[1] = tanf(radius(pitch));
+    front[2] = sinf(radius(yaw));
     vec3_norm(direction, front);
 
 }

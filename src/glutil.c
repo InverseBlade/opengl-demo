@@ -1,6 +1,28 @@
 #include "glutil.h"
 #include "stb_image.h"
 
+GLuint gen_buffer(int size, float *data) {
+    GLuint buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    return buffer;
+}
+
+GLuint del_buffer(GLuint buffer) {
+    glDeleteBuffers(1, &buffer);
+}
+
+GLuint gen_element_buffer(int size, float *data) {
+    GLuint buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    return buffer;
+}
+
 char *loadFile(const char *path) {
     FILE *fp;
     if (NULL == (fp = fopen(path, "rb"))) {
@@ -89,7 +111,7 @@ GLuint loadTexture(const char *texturePath, GLenum rgbMode) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(
             GL_TEXTURE_2D, 0, GL_RGB,
             text_width, text_height, 0,
