@@ -22,10 +22,13 @@ typedef struct _Player {
 typedef struct _ShaderAttrib {
     GLuint program;
     GLuint position;
+    GLuint color;
     GLuint uv;
-    GLuint matrix;
-    GLuint sampler1;
-    GLuint sampler2;
+    GLint matrix;
+    GLint sampler1;
+    GLint sampler2;
+    GLuint texture1;
+    GLuint texture2;
     GLuint texture_type;
 } ShaderAttrib;
 
@@ -35,8 +38,8 @@ typedef struct _Global {
 
 void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer);
 
-void render_sky(ShaderAttrib attrib, Player *player, GLuint array_buffer, GLuint element_buffer);
+void render_sky(ShaderAttrib *attrib, Player *player, GLuint array_buffer, GLuint element_buffer);
 
-void draw_triangles_3d(ShaderAttrib attrib, GLuint buffer, int count);
+void draw_triangles_3d(ShaderAttrib *attrib, GLuint buffer, int count);
 
 #endif //OPENGL_DEMO_MAIN_H

@@ -57,28 +57,71 @@ int main(int argc, char const *argv[]) {
     return 0;
 }
 
-void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer) {
-
-}
-
-void render_sky(ShaderAttrib attrib, Player *player, GLuint array_buffer, GLuint element_buffer);
-
 /**
  * Core Program Loop
  */
 int doLoop(GLFWwindow *window) {
+    ShaderAttrib attrib = {0};
     //-------------------Create Shaders------------------------//
-    GLuint ShaderProgram = loadProgram(
+    attrib.program = loadProgram(
             "shaders/VertexShaderSrc.glsl",
             "shaders/FragmentShaderSrc.glsl");
     //---------------------------------------------------------//
     //Load Texture
     //Generate Texture
-    GLuint texture1 = loadTexture("textures/face.png", GL_RGBA);
-    GLuint texture2 = loadTexture("textures/container.jpg", GL_RGB);
-    GLuint texture3 = loadTexture("textures/bricks.jpg", GL_RGB);
-    // Vertext Data & Create Buffers
-    float vertices[][8] = {
+    attrib.texture1 = loadTexture("textures/face.png", GL_RGBA);
+    attrib.texture2 = loadTexture("textures/bricks.jpg", GL_RGB);
+    attrib.sampler1 = glGetUniformLocation(attrib.program, "myTexture1");
+    attrib.sampler2 = glGetUniformLocation(attrib.program, "myTexture2");
+    // Get Uniforms Location
+    attrib.matrix = glGetUniformLocation(attrib.program, "MVP");
+    //
+    attrib.position = 1;
+    attrib.color = 2;
+    attrib.uv = 3;
+
+    GLuint sky_vbo, sky_veo;
+    gen_sky_buffer(&sky_vbo, &sky_veo);
+    //
+    Player player;
+    last_frame = (float) glfwGetTime();
+    // Loop
+    while (!glfwWindowShouldClose(window)) {
+        //delta time process
+        float current_frame = (float) glfwGetTime();
+        delta_time = current_frame - last_frame;
+        last_frame = current_frame;
+        //FPS
+        int fps = (int) (1.0f / delta_time + 0.5f);
+        char title[255];
+        sprintf(title, "%s%d", WIN_TITLE, fps);
+        glfwSetWindowTitle(window, title);
+        // input
+        processInput(window);
+        // Render
+        glClearColor(0.8627f, 0.8627f, 0.8627f, 1.f);
+        //glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glPolygonMode(GL_FRONT, GL_FILL);
+        glEnable(GL_DEPTH_TEST);
+
+        Camera *eye = &player.camera;
+        vec3_scale(eye->position, camera, 1.0f);
+        vec3_scale(eye->direction, direction, 1.0f);
+        vec3_scale(eye->up, up, 1.0f);
+        //render sky
+        render_sky(&attrib, &player, sky_vbo, sky_veo);
+
+        // check events
+        glfwPollEvents();
+        glfwSwapBuffers(window);
+    }
+
+    return 0;
+}
+
+void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer) {
+    static float vertices[][8] = {
             //front
             //coordinate         //color           //texture-coordinates
             {-1.0f, -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
@@ -116,7 +159,7 @@ int doLoop(GLFWwindow *window) {
             {1.0f,  -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //22 bottom-right
             {1.0f,  -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //23 top-right
     };
-    GLuint indices[] = {
+    static GLuint indices[] = {
             //face1
             0, 1, 2,
             3, 2, 1,
@@ -138,155 +181,69 @@ int doLoop(GLFWwindow *window) {
     };
     unsigned int vex_array_col = sizeof(vertices[0]) / sizeof(float),
             vex_array_row = sizeof(vertices) / sizeof(float) / vex_array_col;
-    printf("%d\n", sizeof(indices));
-    // Vertex Array Object, Vertex Buffer Object, Element Buffer Object
-    GLuint VAO, VBO, EBO;
-    // Generate Objects
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-    // Bind Objects
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    // Copy Data to Video Card Memory
-    glBufferData(GL_ARRAY_BUFFER,
-                 vex_array_row * vex_array_col * sizeof(float),
-                 vertices, GL_STATIC_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 sizeof(indices) / sizeof(float) * sizeof(float),
-                 indices, GL_STATIC_DRAW);
+    *array_buffer =
+            gen_buffer(vex_array_row * vex_array_col * sizeof(float), (float *) vertices);
+    *element_buffer =
+            gen_element_buffer(sizeof(indices) / sizeof(float) * sizeof(float), indices);
+}
+
+void get_see_matrix(mat4x4 M, Camera *camera) {
+    mat4x4 view, projection;
+    //View Matrix
+    vec3 target;
+    vec3_add(target, camera->position, camera->direction);
+    mat4x4_look_at(view, camera->position, target, camera->up);
+    //Projection Matrix
+    float ratio = (float) screen_w / screen_h;
+    mat4x4_perspective(projection, 45.f / 180 * PI, ratio, 0.1f, 1000.0f);
+    mat4x4_mul(M, projection, view);
+}
+
+void render_sky(ShaderAttrib *attrib, Player *player, GLuint array_buffer, GLuint element_buffer) {
+    //
+    glUseProgram(attrib->program);
+    glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer);
     // Assign Data To Vertex Attributes
     // vertex position
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-                          vex_array_col * sizeof(float),
+    glVertexAttribPointer(attrib->position, 3, GL_FLOAT, GL_FALSE,
+                          8 * sizeof(float),
                           (void *) (sizeof(float) * 0));
-    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(attrib->position);
     // vertex color
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
-                          vex_array_col * sizeof(float),
+    glVertexAttribPointer(attrib->color, 3, GL_FLOAT, GL_FALSE,
+                          8 * sizeof(float),
                           (void *) (sizeof(float) * 3));
-    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(attrib->color);
     //texture coord
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE,
-                          vex_array_col * sizeof(float),
+    glVertexAttribPointer(attrib->uv, 2, GL_FLOAT, GL_FALSE,
+                          8 * sizeof(float),
                           (void *) (sizeof(float) * 6));
-    glEnableVertexAttribArray(3);
-    // Unbind VAO
-    glBindVertexArray(0);
-    //Use ShaderProgram
-    glUseProgram(ShaderProgram);
-    //texture & sampler
-    glUniform1i(glGetUniformLocation(ShaderProgram, "myTexture1"), 0);
-    glUniform1i(glGetUniformLocation(ShaderProgram, "myTexture2"), 1);
-    // Get Uniforms Location
-    int matrixLoc = glGetUniformLocation(ShaderProgram, "MVP");
-    //Render Mode
-    switch (mode) {
-        case MODE_LINE:
-            mode = GL_LINE_LOOP;
-            break;
-        case MODE_FILL:
-            mode = GL_TRIANGLES;
-            break;
-        default:
-            mode = GL_TRIANGLES;
-    }
-    int flag = 1;
-    struct {
-        float x, y, z;
-    } cube_pos[] = {
-            {0.0f,  0.0f,  0.0f},
-            {2.0f,  5.0f,  -15.0f},
-            {-1.5f, -2.2f, -2.5f},
-            {-3.8f, -2.0f, -12.3f},
-            {2.4f,  -0.4f, -3.5f},
-            {-1.7f, 3.0f,  -7.5f},
-            {1.3f,  -2.0f, -2.5f},
-            {1.5f,  2.0f,  -2.5f},
-            {1.5f,  0.2f,  -1.5f},
-            {-1.3f, 1.0f,  -1.5f},
-    };
-    last_frame = (float) glfwGetTime();
-    // Loop
-    while (!glfwWindowShouldClose(window)) {
-        //delta time process
-        float current_frame = (float) glfwGetTime();
-        delta_time = current_frame - last_frame;
-        last_frame = current_frame;
-        //FPS
-        int fps = (int) (1.0f / delta_time + 0.5f);
-        char title[255];
-        sprintf(title, "%s%d", WIN_TITLE, fps);
-        glfwSetWindowTitle(window, title);
-        // input
-        processInput(window);
-        // Render
-        glClearColor(0.8627f, 0.8627f, 0.8627f, 1.f);
-        //glClear(GL_COLOR_BUFFER_BIT);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // Use Program & Draw
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture2);
-        //Vertex Array
-        glBindVertexArray(VAO);
-        glPolygonMode(GL_FRONT, GL_FILL);
-        glEnable(GL_DEPTH_TEST);
-        //Transform
-        mat4x4 mvp;
-        mat4x4 model, view, projection;
-        //View Matrix
-//        mat4x4_translate(view, 0.f, 0.f, -5.0f);
-        vec3 target;
-        vec3_add(target, camera, direction);
-        mat4x4_look_at(view, camera, target, up);
-        //Projection Matrix
-        float ratio = (float) screen_w / screen_h;
-        mat4x4_perspective(projection, 45.f / 180 * PI, ratio, 0.1f, 1000.0f);
-        //Draw Cubes
-        mat4x4 temp;
-        glUniform1i(glGetUniformLocation(ShaderProgram, "texType"), 1);
-        for (int i = 0; i < 10; ++i) {
-            mat4x4_identity(model);
-            mat4x4_rotate_Y(model, model, current_frame);
-            mat4x4_translate(temp, cube_pos[i].x, cube_pos[i].y, cube_pos[i].z);
-            mat4x4_mul(model, model, temp);
-            float angle = 20.0f * i;
-            mat4x4_rotate(model, model, 1.0f, 0.3f, 0.5f, angle);
-            mat4x4_rotate_Y(model, model, current_frame);
-            mat4x4_scale_aniso(model, model, scale, scale, scale);
-            mat4x4_mul(mvp, projection, view);
-            mat4x4_mul(mvp, mvp, model);
-            glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
-            glDrawElements(GL_TRIANGLES,
-                           sizeof(indices) / sizeof(float),
-                           GL_UNSIGNED_INT, (void *) 0);
-        }
-        //Model Matrix
-        mat4x4_translate(model, xoffset, yoffset, zoffset);
-        mat4x4_rotate_X(model, model, xangle);
-        mat4x4_rotate_Y(model, model, yangle);
-        mat4x4_rotate_Z(model, model, zangle);
-        mat4x4_scale_aniso(model, model, 28.f, 28.f, 28.f);
-        //MVP
-        mat4x4_mul(mvp, projection, view);
-        mat4x4_mul(mvp, mvp, model);
-        glUniformMatrix4fv(matrixLoc, 1, GL_FALSE, (const float *) mvp);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture3);
-        glUniform1i(glGetUniformLocation(ShaderProgram, "texType"), 2);
-        glDrawElements(GL_TRIANGLES,
-                       sizeof(indices) / sizeof(float),
-                       GL_UNSIGNED_INT, (void *) 0);
-        // check events
-        glfwPollEvents();
-        glfwSwapBuffers(window);
-    }
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    return 0;
+    glEnableVertexAttribArray(attrib->uv);
+    //mvp
+    mat4x4 mvp, model, vp;
+    //model
+    mat4x4_identity(model);
+    mat4x4_scale_aniso(model, model, 28.f, 28.f, 28.f);
+    //MVP
+    get_see_matrix(vp, &(player->camera));
+    mat4x4_mul(mvp, vp, model);
+    glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, (const float *) mvp);
+    //
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, attrib->texture1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, attrib->texture2);
+    glUniform1i(attrib->sampler1, 0);
+    glUniform1i(attrib->sampler2, 1);
+    glUniform1i(glGetUniformLocation(attrib->program, "texType"), 2);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void *) 0);
+    //
+    glDisableVertexAttribArray(attrib->position);
+    glDisableVertexAttribArray(attrib->color);
+    glDisableVertexAttribArray(attrib->uv);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void walk_along_direction(vec3 camera_pos, vec3 const direction, float const speed) {

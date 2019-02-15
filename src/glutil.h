@@ -18,10 +18,10 @@ GLuint loadProgram(const char *vertexPath, const char *fragmentPath);
 
 GLuint loadTexture(const char *texturePath, GLenum rgbMode);
 
-GLuint gen_buffer(int size, float *data);
+GLuint gen_buffer(GLsizei size, float *data);
 
 GLuint del_buffer(GLuint buffer);
 
-GLuint gen_element_buffer(int size, float *data);
+GLuint gen_element_buffer(GLsizei size, GLuint *data);
 
 #endif

@@ -1,7 +1,7 @@
 #include "glutil.h"
 #include "stb_image.h"
 
-GLuint gen_buffer(int size, float *data) {
+GLuint gen_buffer(GLsizei size, float *data) {
     GLuint buffer;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -14,7 +14,7 @@ GLuint del_buffer(GLuint buffer) {
     glDeleteBuffers(1, &buffer);
 }
 
-GLuint gen_element_buffer(int size, float *data) {
+GLuint gen_element_buffer(GLsizei size, GLuint *data) {
     GLuint buffer;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
