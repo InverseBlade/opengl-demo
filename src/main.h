@@ -44,6 +44,6 @@ void draw_triangles_3d(ShaderAttrib *attrib, GLuint vao, int count);
 
 void make_cube(float *vertices, unsigned int *indices);
 
-void get_vision_matrix(mat4x4 M, Camera *camera)
+void get_vision_matrix(mat4x4 M, Camera *camera);
 
 #endif //OPENGL_DEMO_MAIN_H
