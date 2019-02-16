@@ -75,13 +75,11 @@ int doLoop(GLFWwindow *window) {
     attrib.sampler2 = glGetUniformLocation(attrib.program, "myTexture2");
     // Get Uniforms Location
     attrib.matrix = glGetUniformLocation(attrib.program, "MVP");
-    //
     attrib.position = 1;
     attrib.color = 2;
     attrib.uv = 3;
 
-    GLuint sky_vbo, sky_veo;
-    gen_sky_buffer(&sky_vbo, &sky_veo);
+    GLuint sky_vao = gen_sky_buffer();
     //
     Player player;
     last_frame = (float) glfwGetTime();
@@ -110,7 +108,7 @@ int doLoop(GLFWwindow *window) {
         vec3_scale(eye->direction, direction, 1.0f);
         vec3_scale(eye->up, up, 1.0f);
         //render sky
-        render_sky(&attrib, &player, sky_vbo, sky_veo);
+        render_sky(&attrib, &player, sky_vao);
 
         // check events
         glfwPollEvents();
@@ -120,8 +118,35 @@ int doLoop(GLFWwindow *window) {
     return 0;
 }
 
-void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer) {
-    static float vertices[][8] = {
+void draw_triangles_3d(ShaderAttrib *attrib, GLuint vao, int count) {
+    glBindVertexArray(vao);
+    // Assign Data To Vertex Attributes
+    // vertex position
+    glVertexAttribPointer(attrib->position, 3, GL_FLOAT, GL_FALSE,
+                          8 * sizeof(float),
+                          (void *) (sizeof(float) * 0));
+    glEnableVertexAttribArray(attrib->position);
+    // vertex color
+    glVertexAttribPointer(attrib->color, 3, GL_FLOAT, GL_FALSE,
+                          8 * sizeof(float),
+                          (void *) (sizeof(float) * 3));
+    glEnableVertexAttribArray(attrib->color);
+    //texture coord
+    glVertexAttribPointer(attrib->uv, 2, GL_FLOAT, GL_FALSE,
+                          8 * sizeof(float),
+                          (void *) (sizeof(float) * 6));
+    glEnableVertexAttribArray(attrib->uv);
+    //Draw
+    glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, (void *) 0);
+    //
+    glDisableVertexAttribArray(attrib->position);
+    glDisableVertexAttribArray(attrib->color);
+    glDisableVertexAttribArray(attrib->uv);
+    glBindVertexArray(0);
+}
+
+void make_cube(float *vertices, unsigned int *indices) {
+    float v[][8] = {
             //front
             //coordinate         //color           //texture-coordinates
             {-1.0f, -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 0.f, 0.f}, //0 bottom-left
@@ -159,7 +184,7 @@ void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer) {
             {1.0f,  -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.f, 0.f}, //22 bottom-right
             {1.0f,  -1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.f, 1.f}, //23 top-right
     };
-    static GLuint indices[] = {
+    GLuint i[] = {
             //face1
             0, 1, 2,
             3, 2, 1,
@@ -179,15 +204,28 @@ void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer) {
             20, 21, 22,
             21, 22, 23
     };
-    unsigned int vex_array_col = sizeof(vertices[0]) / sizeof(float),
-            vex_array_row = sizeof(vertices) / sizeof(float) / vex_array_col;
-    *array_buffer =
-            gen_buffer(vex_array_row * vex_array_col * sizeof(float), (float *) vertices);
-    *element_buffer =
-            gen_element_buffer(sizeof(indices) / sizeof(float) * sizeof(float), indices);
+    memcpy(vertices, v, sizeof(v));
+    memcpy(indices, i, sizeof(i));
 }
 
-void get_see_matrix(mat4x4 M, Camera *camera) {
+GLuint gen_sky_buffer() {
+    unsigned int vex_array_col = 8, vex_array_row = 24;
+    float vertices[8 * 24];
+    GLuint indices[36];
+    GLuint vao;
+
+    make_cube(vertices, indices);
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER,
+                 gen_buffer(vex_array_row * vex_array_col * sizeof(float), (float *) vertices));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                 gen_element_buffer(sizeof(indices) / sizeof(GLuint) * sizeof(GLuint), indices));
+    glBindVertexArray(0);
+    return vao;
+}
+
+void get_vision_matrix(mat4x4 M, Camera *camera) {
     mat4x4 view, projection;
     //View Matrix
     vec3 target;
@@ -199,34 +237,16 @@ void get_see_matrix(mat4x4 M, Camera *camera) {
     mat4x4_mul(M, projection, view);
 }
 
-void render_sky(ShaderAttrib *attrib, Player *player, GLuint array_buffer, GLuint element_buffer) {
+void render_sky(ShaderAttrib *attrib, Player *player, GLuint vao) {
     //
     glUseProgram(attrib->program);
-    glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer);
-    // Assign Data To Vertex Attributes
-    // vertex position
-    glVertexAttribPointer(attrib->position, 3, GL_FLOAT, GL_FALSE,
-                          8 * sizeof(float),
-                          (void *) (sizeof(float) * 0));
-    glEnableVertexAttribArray(attrib->position);
-    // vertex color
-    glVertexAttribPointer(attrib->color, 3, GL_FLOAT, GL_FALSE,
-                          8 * sizeof(float),
-                          (void *) (sizeof(float) * 3));
-    glEnableVertexAttribArray(attrib->color);
-    //texture coord
-    glVertexAttribPointer(attrib->uv, 2, GL_FLOAT, GL_FALSE,
-                          8 * sizeof(float),
-                          (void *) (sizeof(float) * 6));
-    glEnableVertexAttribArray(attrib->uv);
     //mvp
     mat4x4 mvp, model, vp;
     //model
     mat4x4_identity(model);
     mat4x4_scale_aniso(model, model, 28.f, 28.f, 28.f);
     //MVP
-    get_see_matrix(vp, &(player->camera));
+    get_vision_matrix(vp, &(player->camera));
     mat4x4_mul(mvp, vp, model);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, (const float *) mvp);
     //
@@ -237,13 +257,7 @@ void render_sky(ShaderAttrib *attrib, Player *player, GLuint array_buffer, GLuin
     glUniform1i(attrib->sampler1, 0);
     glUniform1i(attrib->sampler2, 1);
     glUniform1i(glGetUniformLocation(attrib->program, "texType"), 2);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void *) 0);
-    //
-    glDisableVertexAttribArray(attrib->position);
-    glDisableVertexAttribArray(attrib->color);
-    glDisableVertexAttribArray(attrib->uv);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    draw_triangles_3d(attrib, vao, 36);
 }
 
 void walk_along_direction(vec3 camera_pos, vec3 const direction, float const speed) {

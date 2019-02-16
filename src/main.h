@@ -36,10 +36,14 @@ typedef struct _Global {
 
 } Global;
 
-void gen_sky_buffer(GLuint *array_buffer, GLuint *element_buffer);
+GLuint gen_sky_buffer();
 
-void render_sky(ShaderAttrib *attrib, Player *player, GLuint array_buffer, GLuint element_buffer);
+void render_sky(ShaderAttrib *attrib, Player *player, GLuint vao);
 
-void draw_triangles_3d(ShaderAttrib *attrib, GLuint buffer, int count);
+void draw_triangles_3d(ShaderAttrib *attrib, GLuint vao, int count);
+
+void make_cube(float *vertices, unsigned int *indices);
+
+void get_vision_matrix(mat4x4 M, Camera *camera)
 
 #endif //OPENGL_DEMO_MAIN_H
