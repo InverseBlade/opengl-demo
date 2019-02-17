@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 11)
 
 FILE(GLOB SOURCE_FILES src/*.c)
 
-add_executable(opengl_demo ${SOURCE_FILES} src/main.h)
+add_executable(opengl_demo ${SOURCE_FILES})
 
 include_directories(./deps/include)
 

@@ -9,7 +9,6 @@
 #include <windows.h>
 #include "stb_image.h"
 #include "linmath.h"
-#include "main.h"
 
 #define RENDER_WID 1280
 #define RENDER_HGT 1280
@@ -21,6 +20,48 @@
 #define MODE_FILL 2
 
 #define CAMERA_SPEED 8
+
+typedef struct {
+    vec3 position;
+    vec3 direction;
+    vec3 up;
+} Camera;
+
+typedef struct {
+    GLuint id;
+    Camera camera;
+} Player;
+
+typedef struct {
+    GLuint program;
+    GLuint position;
+    GLuint color;
+    GLuint uv;
+    GLint matrix;
+    GLint sampler1;
+    GLint sampler2;
+    GLuint texture1;
+    GLuint texture2;
+    GLuint texture_type;
+} ShaderAttrib;
+
+typedef struct {
+
+} Global;
+
+GLuint gen_sky_buffer();
+
+GLuint gen_sprite_buffer();
+
+void render_sprite(ShaderAttrib *attrib, Player *player, GLuint vao);
+
+void render_sky(ShaderAttrib *attrib, Player *player, GLuint vao);
+
+void draw_triangles_3d(ShaderAttrib *attrib, GLuint vao, int count);
+
+void make_cube(float *vertices, unsigned int *indices);
+
+void get_vision_matrix(mat4x4 M, Camera *camera);
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
@@ -38,11 +79,15 @@ vec3 camera = {0.0f, -20.0f, 3.0f},
 float delta_time = 0.0f, last_frame = 0.0f;
 float yaw = -90.f, pitch = .0f;
 float last_x = 0, last_y = 0;
-
 int screen_w = RENDER_WID, screen_h = RENDER_HGT;
-
 int mode = MODE_LINE;
 
+/**
+ * Main
+ * @param argc
+ * @param argv
+ * @return
+ */
 int main(int argc, char const *argv[]) {
     // TO-DO
     GLFWwindow *window = initWindow();
@@ -79,7 +124,13 @@ int doLoop(GLFWwindow *window) {
     attrib.color = 2;
     attrib.uv = 3;
 
+    ShaderAttrib attrib_sprite;
+    memcpy(&attrib_sprite, &attrib, sizeof(ShaderAttrib));
+    attrib_sprite.texture1 = loadTexture("textures/container.jpg", GL_RGB);
+    attrib_sprite.texture2 = loadTexture("textures/container.jpg", GL_RGB);
+
     GLuint sky_vao = gen_sky_buffer();
+    GLuint sprite_vao = gen_sprite_buffer();
     //
     Player player;
     last_frame = (float) glfwGetTime();
@@ -107,8 +158,9 @@ int doLoop(GLFWwindow *window) {
         vec3_scale(eye->position, camera, 1.0f);
         vec3_scale(eye->direction, direction, 1.0f);
         vec3_scale(eye->up, up, 1.0f);
-        //render sky
+        //render scene
         render_sky(&attrib, &player, sky_vao);
+        render_sprite(&attrib_sprite, &player, sprite_vao);
 
         // check events
         glfwPollEvents();
@@ -209,7 +261,6 @@ void make_cube(float *vertices, unsigned int *indices) {
 }
 
 GLuint gen_sky_buffer() {
-    unsigned int vex_array_col = 8, vex_array_row = 24;
     float vertices[8 * 24];
     GLuint indices[36];
     GLuint vao;
@@ -217,10 +268,8 @@ GLuint gen_sky_buffer() {
     make_cube(vertices, indices);
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER,
-                 gen_buffer(vex_array_row * vex_array_col * sizeof(float), (float *) vertices));
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-                 gen_element_buffer(sizeof(indices) / sizeof(GLuint) * sizeof(GLuint), indices));
+    glBindBuffer(GL_ARRAY_BUFFER, gen_buffer(8 * 24 * sizeof(float), (float *) vertices));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gen_element_buffer(36 * sizeof(GLuint), indices));
     glBindVertexArray(0);
     return vao;
 }
@@ -258,6 +307,65 @@ void render_sky(ShaderAttrib *attrib, Player *player, GLuint vao) {
     glUniform1i(attrib->sampler2, 1);
     glUniform1i(glGetUniformLocation(attrib->program, "texType"), 2);
     draw_triangles_3d(attrib, vao, 36);
+}
+
+GLuint gen_sprite_buffer() {
+    float vertices[8 * 24];
+    GLuint indices[36];
+    GLuint vao;
+
+    make_cube(vertices, indices);
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, gen_buffer(8 * 24 * sizeof(float), vertices));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gen_element_buffer(36 * sizeof(unsigned int), indices));
+    glBindVertexArray(0);
+    return vao;
+}
+
+void render_sprite(ShaderAttrib *attrib, Player *player, GLuint vao) {
+    glUseProgram(attrib->program);
+    //matrix
+    struct {
+        float x, y, z;
+    } cube_pos[] = {
+            {0.0f,  0.0f,  0.0f},
+            {2.0f,  5.0f,  -15.0f},
+            {-1.5f, -2.2f, -2.5f},
+            {-3.8f, -2.0f, -12.3f},
+            {2.4f,  -0.4f, -3.5f},
+            {-1.7f, 3.0f,  -7.5f},
+            {1.3f,  -2.0f, -2.5f},
+            {1.5f,  2.0f,  -2.5f},
+            {1.5f,  0.2f,  -1.5f},
+            {-1.3f, 1.0f,  -1.5f},
+    };
+    mat4x4 mvp;
+    mat4x4 model, vp;
+    //View Matrix
+    get_vision_matrix(vp, &(player->camera));
+    //Draw Cubes
+    mat4x4 temp;
+    glUniform1i(glGetUniformLocation(attrib->program, "texType"), 1);
+    for (int i = 0; i < 10; ++i) {
+        mat4x4_identity(model);
+        mat4x4_rotate_Y(model, model, 10.f);
+        mat4x4_translate(temp, cube_pos[i].x, cube_pos[i].y, cube_pos[i].z);
+        mat4x4_mul(model, model, temp);
+        float angle = 20.0f * i;
+        mat4x4_rotate(model, model, 1.0f, 0.3f, 0.5f, angle);
+        mat4x4_scale_aniso(model, model, scale, scale, scale);
+        mat4x4_mul(mvp, vp, model);
+        glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, (const float *) mvp);
+        //
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, attrib->texture1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, attrib->texture2);
+        glUniform1i(attrib->sampler1, 0);
+        glUniform1i(attrib->sampler2, 1);
+        draw_triangles_3d(attrib, vao, 36);
+    }
 }
 
 void walk_along_direction(vec3 camera_pos, vec3 const direction, float const speed) {
