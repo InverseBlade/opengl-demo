@@ -10,8 +10,8 @@
 #include "stb_image.h"
 #include "linmath.h"
 
-#define RENDER_WID 1280
-#define RENDER_HGT 1280
+#define RENDER_WID 480
+#define RENDER_HGT 480
 #define WIN_TITLE "旋转方块——帧数:"
 
 #define PI (3.14159f)
@@ -134,6 +134,8 @@ int doLoop(GLFWwindow *window) {
     //
     Player player;
     last_frame = (float) glfwGetTime();
+    float fps_update = (float) glfwGetTime(), fps = 0;
+    int fps_count = 0;
     // Loop
     while (!glfwWindowShouldClose(window)) {
         //delta time process
@@ -141,10 +143,14 @@ int doLoop(GLFWwindow *window) {
         delta_time = current_frame - last_frame;
         last_frame = current_frame;
         //FPS
-        int fps = (int) (1.0f / delta_time + 0.5f);
-        char title[255];
-        sprintf(title, "%s%d", WIN_TITLE, fps);
-        glfwSetWindowTitle(window, title);
+        fps_count++, fps += 1.0f / delta_time;
+        if (current_frame - fps_update > 0.01f) {
+            char title[255];
+            sprintf(title, "%s%d", WIN_TITLE, (int) (fps / fps_count + 0.5f));
+            glfwSetWindowTitle(window, title);
+            fps_update = current_frame;
+            fps = fps_count = 0;
+        }
         // input
         processInput(window);
         // Render
@@ -349,7 +355,7 @@ void render_sprite(ShaderAttrib *attrib, Player *player, GLuint vao) {
     glUniform1i(glGetUniformLocation(attrib->program, "texType"), 1);
     for (int i = 0; i < 10; ++i) {
         mat4x4_identity(model);
-        mat4x4_rotate_Y(model, model, 10.f);
+        mat4x4_rotate_Y(model, model, (float) glfwGetTime());
         mat4x4_translate(temp, cube_pos[i].x, cube_pos[i].y, cube_pos[i].z);
         mat4x4_mul(model, model, temp);
         float angle = 20.0f * i;
@@ -550,6 +556,8 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     yaw += offset_x;
     pitch += offset_y;
 
+    yaw = yaw <= -360.f ? 0.f : yaw;
+    yaw = yaw >= 360.f ? 0.f : yaw;
     if (pitch >= 89.9f) pitch = 89.9f;
     if (pitch <= -89.9f) pitch = -89.9f;
 

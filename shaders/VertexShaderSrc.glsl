@@ -15,6 +15,6 @@ void main() {
     if (texType == 1){
         texCoord = aTexCoord;
     }else if (texType == 2){
-        texCoord = aTexCoord * 6;
+        texCoord = aTexCoord * 4;
     }
 }
